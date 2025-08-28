@@ -7,6 +7,14 @@ const { sendEmail } = require("./utils");
 dotenv.config();
 
 const app = express();
+app.use(express.static("public"));
+
+//urlencoded
+app.use(bodyParser.urlencoded({ extended: true }));
+
+//json
+app.use(express.json());
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // middleware para stripe (raw body, no JSON.parse normal)
