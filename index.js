@@ -9,6 +9,8 @@ dotenv.config();
 const app = express();
 app.use(express.static("public"));
 
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
 //urlencoded
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -23,53 +25,58 @@ app.use(
 );
 
 // endpoint webhook
-app.post("/webhook", async (req, res) => {
-  const sig = req.headers["stripe-signature"];
-  let event;
+app.post('/webhook', express.json({type: 'application/json'}), (req, res) => {
+  let event = req.body;
 
-  try {
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-  } catch (err) {
-    console.error("❌ Error verificando webhook:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-
-  // procesar evento de pago exitoso
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-
-    console.log(session);
-    console.log(event);
-    console.log(event.data.object);
-    console.log(event.data.object.customer_details);
-
-    // email del usuario
-    const customerEmail = session.customer_details.email;
-    const randomTicketNumber = Math.floor(100000 + Math.random() * 900000);
-    const nombres = session.customer_details.name;
-
-   
-
-
-    // enviar email
+  if (endpointSecret) {
+    // Get the signature sent by Stripe
+    const signature = req.headers['stripe-signature'];
     try {
-        sendEmail({
-            to: customerEmail,
-            subject: "Ticket de acceso",
-            html: htmlEmail(randomTicketNumber, nombres),
-            nombres,
-            nro: randomTicketNumber
-        });
-      console.log("📧 Email enviado a:", customerEmail);
-    } catch (error) {
-      console.error("Error enviando email:", error);
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        signature,
+        endpointSecret
+      );
+    } catch (err) {
+      console.log(`⚠️  Webhook signature verification failed.`, err.message);
+      return res.sendStatus(400);
     }
   }
 
+  // Handle the event
+  switch (event.type) {
+    case 'checkout.session.completed':
+      const session = event.data.object;
+
+      console.log(session);
+      console.log(event);
+      console.log(event.data.object);
+      console.log(event.data.object.customer_details);
+
+      // email del usuario
+      const customerEmail = session.customer_details.email;
+      const randomTicketNumber = Math.floor(100000 + Math.random() * 900000);
+      const nombres = session.customer_details.name;
+
+      // enviar email
+      try {
+        sendEmail({
+          to: customerEmail,
+          subject: "Ticket de acceso",
+          html: htmlEmail(randomTicketNumber, nombres),
+          nombres,
+          nro: randomTicketNumber
+        });
+        console.log("📧 Email enviado a:", customerEmail);
+      } catch (error) {
+        console.error("Error enviando email:", error);
+      }
+      break;
+    default:
+      console.log(`Unhandled event type ${event.type}`);
+  }
+
+  // Return a response to acknowledge receipt of the event
   res.json({ received: true });
 });
 
