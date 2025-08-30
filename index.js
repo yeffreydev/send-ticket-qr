@@ -21,6 +21,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.post("/webhook", bodyParser.raw({ type: "application/json" }), (req, res) => {
   try {
     let event;
+    //save body
+    logToFile(req.body);
 
     if (endpointSecret) {
       const signature = req.headers["stripe-signature"];
@@ -33,8 +35,8 @@ app.post("/webhook", bodyParser.raw({ type: "application/json" }), (req, res) =>
     } else {
       event = JSON.parse(req.body);
     }
-    logToFile(event)
-    console.log(event);
+    // logToFile(event)
+    // console.log(event);
 
     // Handle the event
     switch (event.type) {
@@ -42,8 +44,8 @@ app.post("/webhook", bodyParser.raw({ type: "application/json" }), (req, res) =>
       case "checkout.session.async_payment_succeeded":
         const session = event.data.object;
 
-        console.log("✅ Session:", session);
-        console.log("📌 Customer:", session.customer_details);
+        // console.log("✅ Session:", session);
+        // console.log("📌 Customer:", session.customer_details);
 
         const customerEmail = session.customer_details.email;
         const randomTicketNumber = Math.floor(100000 + Math.random() * 900000);
